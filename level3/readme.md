@@ -148,5 +148,5 @@ Wait what?!
 whoami
 level4
 cat /home/user/level4/.pass
-REMOVED
+
 ```

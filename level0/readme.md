@@ -80,7 +80,7 @@ It's compare `eax` register with `$0x1a7`. `$0x1a7` is `423` in integer. Give it
 ```bash
 ./level0 423
 $ cat /home/user/level1/.pass
-REMOVED
+
 $ exit
 level0@RainFall:~$ su level1
 Password: 

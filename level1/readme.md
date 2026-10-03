@@ -111,7 +111,7 @@ Good... Wait what?
 whoami
 level2
 cat /home/user/level2/.pass
-REMOVED
+
 Segmentation fault (core dumped)
 ```
 `-` stands for `stdin`. If we not contain this character, the program meet EOF.

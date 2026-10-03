@@ -115,7 +115,7 @@ level2@RainFall:~$ cat /tmp/exploit - | ./level2
 whoami
 level3
 cat /home/user/level3/.pass
-REMOVED
+
 ```
 For the 32-bit Linux `execve` syscall, `eax` must be 11, `ebx` must point to the filename, `ecx` supplies `argv`, and `edx` supplies `envp`. The shellcode uses `push` instructions to build `/bin//sh` on the stack and `mov ebx,esp` to point to it. Thus `ebx` is a filename address, not zero.
 

