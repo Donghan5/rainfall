@@ -1,90 +1,29 @@
 # Way to level1
 
-We can enter the shell via ssh. The password of this level is `level0`
-```bash
-ssh level0@172.20.10.2 -p 4242
-```
-When you enter the level0, you can see `level0` excutable file.
-If I launch this file, you can see this result.
+## Core
+`main` compares `atoi(argv[1])` against `0x1a7` (=423) with `cmp`. On a match it drops
+to level1 privileges and runs a shell via `execv`. Match one argument and you win.
 
-```bash
-level0@RainFall:~$ ./level0
-Segmentation fault (core dumped)
+## Decisive disass (full: `disas main`)
 ```
-
-So we assume that something happen inside of the program.
-Let's launch gdb debugger.
-
-```bash
-gdb ./level0
-```
-And let's see what happens inside of it.
-```gdb
-(gdb) disassemble main
-Dump of assembler code for function main:
-   0x08048ec0 <+0>:     push   %ebp
-   0x08048ec1 <+1>:     mov    %esp,%ebp
-   0x08048ec3 <+3>:     and    $0xfffffff0,%esp
-   0x08048ec6 <+6>:     sub    $0x20,%esp
-   0x08048ec9 <+9>:     mov    0xc(%ebp),%eax
-   0x08048ecc <+12>:    add    $0x4,%eax
-   0x08048ecf <+15>:    mov    (%eax),%eax
-   0x08048ed1 <+17>:    mov    %eax,(%esp)
-   0x08048ed4 <+20>:    call   0x8049710 <atoi>
-   0x08048ed9 <+25>:    cmp    $0x1a7,%eax
-   0x08048ede <+30>:    jne    0x8048f58 <main+152>
-   0x08048ee0 <+32>:    movl   $0x80c5348,(%esp)
-   0x08048ee7 <+39>:    call   0x8050bf0 <strdup>
-   0x08048eec <+44>:    mov    %eax,0x10(%esp)
-   0x08048ef0 <+48>:    movl   $0x0,0x14(%esp)
-   0x08048ef8 <+56>:    call   0x8054680 <getegid>
-   0x08048efd <+61>:    mov    %eax,0x1c(%esp)
-   0x08048f01 <+65>:    call   0x8054670 <geteuid>
-   0x08048f06 <+70>:    mov    %eax,0x18(%esp)
-   0x08048f0a <+74>:    mov    0x1c(%esp),%eax
-   0x08048f0e <+78>:    mov    %eax,0x8(%esp)
-   0x08048f12 <+82>:    mov    0x1c(%esp),%eax
----Type <return> to continue, or q <return> to quit---
-   0x08048f16 <+86>:    mov    %eax,0x4(%esp)
-   0x08048f1a <+90>:    mov    0x1c(%esp),%eax
-   0x08048f1e <+94>:    mov    %eax,(%esp)
-   0x08048f21 <+97>:    call   0x8054700 <setresgid>
-   0x08048f26 <+102>:   mov    0x18(%esp),%eax
-   0x08048f2a <+106>:   mov    %eax,0x8(%esp)
-   0x08048f2e <+110>:   mov    0x18(%esp),%eax
-   0x08048f32 <+114>:   mov    %eax,0x4(%esp)
-   0x08048f36 <+118>:   mov    0x18(%esp),%eax
-   0x08048f3a <+122>:   mov    %eax,(%esp)
-   0x08048f3d <+125>:   call   0x8054690 <setresuid>
-   0x08048f42 <+130>:   lea    0x10(%esp),%eax
-   0x08048f46 <+134>:   mov    %eax,0x4(%esp)
-   0x08048f4a <+138>:   movl   $0x80c5348,(%esp)
-   0x08048f51 <+145>:   call   0x8054640 <execv>
-   0x08048f56 <+150>:   jmp    0x8048f80 <main+192>
-   0x08048f58 <+152>:   mov    0x80ee170,%eax
-   0x08048f5d <+157>:   mov    %eax,%edx
-   0x08048f5f <+159>:   mov    $0x80c5350,%eax
-   0x08048f64 <+164>:   mov    %edx,0xc(%esp)
-   0x08048f68 <+168>:   movl   $0x5,0x8(%esp)
-   0x08048f70 <+176>:   movl   $0x1,0x4(%esp)
-   0x08048f78 <+184>:   mov    %eax,(%esp)
----Type <return> to continue, or q <return> to quit---
-   0x08048f7b <+187>:   call   0x804a230 <fwrite>
-   0x08048f80 <+192>:   mov    $0x0,%eax
-   0x08048f85 <+197>:   leave  
-   0x08048f86 <+198>:   ret    
+<+20>:  call atoi
+<+25>:  cmp  $0x1a7,%eax      ; 0x1a7 = 423, the only value the branch needs
+<+30>:  jne  main+152         ; mismatch -> fwrite error, exit
+   ...                        ; on pass: setresuid/gid set level1 privileges
+<+145>: call execv            ; spawn shell with those privileges
 ```
 
-About this result of disassemble main command, now we focus on `cmp` part.
-It's compare `eax` register with `$0x1a7`. `$0x1a7` is `423` in integer. Give it a try.
+## Exploit
+- Value: `argv[1] = 423` (source: `cmp $0x1a7` @ main+25)
+- Delivery: pass it as the argument, then read the pass in the spawned shell
 ```bash
 ./level0 423
 $ cat /home/user/level1/.pass
-
-$ exit
-level0@RainFall:~$ su level1
-Password: 
 ```
-When we launch program with `423`, there some another shell appears. So now we are going to execute cat command with
-`/home/user/level1/.pass` file.
-We can get token to enter level1.
+
+## Diff from previous
+First level. The shared habit used everywhere after — "find the cmp/call points with
+`disas`" — starts here.
+
+## Result
+`1fe8a524fa4bec01ca4ea2a869af2a02260d4a7d5fe7e7c24d8617e6dca12d3a`
