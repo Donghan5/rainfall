@@ -36,5 +36,3 @@ offset 4→12 → direct access **`%12$n`** instead of positional padding (the 1
 have variable widths you cannot count). (2) `system`'s argument is cat run directly, not
 `/bin/sh` → the cat - trick is dropped.
 
-## Result
-`0f99ba5e9c446258a69b290407a6c60859e9c2d25b26575cafc9ae6d75e9456a`

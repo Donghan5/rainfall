@@ -39,5 +39,3 @@ cat - trick). level6 is a **heap overflow**: `strcpy` with no length check overf
 into `buf2`'s **function pointer**, which `call *%eax` then invokes. Input arrives through
 `argv[1]`, and `system` runs cat directly → no trick needed (like level4).
 
-## Result
-`f73dcb7a06f60e3ccc608990b0a046359d42a1a0489ffeefd0d9cb2d7c9cb82d`

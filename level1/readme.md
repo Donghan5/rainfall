@@ -36,6 +36,3 @@ cat /tmp/exploit - | ./level1
 level0 only needed the right branch value (the code ran the shell for you). level1
 introduces **return-address hijacking** — BOF + offset math + little-endian + the cat -
 trick are all introduced here.
-
-## Result
-`53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77`

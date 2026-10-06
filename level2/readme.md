@@ -35,5 +35,3 @@ level1 had **reusable code (`run`)**, so ret2func was enough. level2 has no such
 even a stack-address check, blocking ret2stack/ret2libc → put **shellcode on the heap (via
 strdup)** and jump there. offset also 76→80 (presence/absence of alignment padding).
 
-## Result
-`492deb0e7d14c4b5695173cca843c4384fe52d0857c2b0718e1a521a4d33ec02`

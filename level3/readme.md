@@ -35,5 +35,3 @@ Through level2 everything was stack/return-address based (BOF). level3 introduce
 FSB** — not a return address but writing a value to an arbitrary address via `%n`. The
 value to write (64) is small, so one pad (`%044x`) suffices and only 1 address is needed.
 
-## Result
-`b209ea91ad69ef36f2cf0fcbbc24c739fd10464cf545b20bea8572ebdc3c36fa`

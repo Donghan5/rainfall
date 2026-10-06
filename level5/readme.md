@@ -42,5 +42,3 @@ level5: no cmp + a never-called `o()` → **GOT overwrite** to hijack flow. The 
 so **2-byte split + `%hn`** → 2 addresses. The shell is `/bin/sh`, so the cat - trick returns
 (level4 ran cat directly).
 
-## Result
-`d3b7bf1025225bd715fa8ccb54ef06ca70b9125ac855aeab4878217177f41a31`
