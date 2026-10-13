@@ -26,6 +26,20 @@ exit@plt:
   destination addresses (8B). The `+2` is that 2-byte step.
   - high half `0x0804` = 2052 → `0x8049838+2 = 0x804983a`
   - low half  `0x84a4` = 33956 → `0x8049838`
+  - why there are 2 addresses and the `+2` = each of the 4 points below decides a different thing:
+    - **write width**: `%n` = 4B in one shot → 1 address, no `+2`. `%hn` = 2B at a time →
+      the 4B GOT slot must be written in two halves → 2 addresses. The `+2` is "the start of the
+      second write" (the first write consumes 2B, so start 2 bytes later). The GOT slot is still
+      a fixed 4B — the space didn't grow; these are just two start points into the same 4 bytes,
+      2 bytes at a time.
+    - **output limit**: even if a single `%n` were possible, `0x080484a4` = ~134M chars printed
+      at once → impractical. So the two `%hn` solve the "write-width limit + output-volume limit"
+      at the same time.
+    - **endianness (which address)**: x86 little-endian → low half (`0x84a4`) → base,
+      high half (`0x0804`) → base+2.
+    - **cumulative (which one first)**: the printed char count only ever increases → smaller value
+      first. Since high(2052) < low(33956), high goes first. Each `%Nx`'s N = (next target
+      cumulative) − (current cumulative), and the starting cumulative is the 8B of addresses.
 - char count (cumulative, only increases → **smaller value first**); the two addresses
   already print 8B, so the baseline is 8.
   - `%2044x%4$hn`: 8 + 2044 = **2052** → `0x804983a` (slot 4). (2052−8=2044)
