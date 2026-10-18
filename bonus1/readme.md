@@ -28,6 +28,10 @@ Buffer-to-target distance: `0x3c - 0x14 = 0x28 = 40` bytes, +4 to overwrite the 
   `atoi("-2147483637") = 0x8000000B`; `0x8000000B * 4 = 0x2_0000_002C`, low 32 bits = `0x2C = 44`.
   (`-2147483648 = 0x80000000` → `*4 = 0x2_0000_0000` → 0 bytes; add 11 to get the 44 we need.)
   Confirmed by ltrace: `./bonus1 -2147483647 ss` → `atoi = 0x80000001`, `memcpy(...,"ss",4)`.
+    - Why we need, 44 bytes: 40 (esp+0x14 → esp+0x3c) + 4 (overwrite the saved n at esp+0x3c).
+    - In line jle --> we need to pass the signed check, so n must be negative. The largest negative number that passes the check is -1, but -1 * 4 = -4, which is not enough to reach the saved n slot. We need to find a negative number that, when multiplied by 4, wraps around to 44. That number is -2147483637.
+    - It's based on the fact that 2^32 = 4294967296, and 4294967296 - 44 = 4294967252. So we need n such that n * 4 ≡ 44 (mod 2^32). Solving for n gives us n = (4294967252 / 4) = 1073741813, which is -2147483637 in signed 32-bit representation.
+    - Also, the charasteristics of `ecx` register: `ecx` is used to hold the size for `memcpy`, and since `memcpy` takes a `size_t` (unsigned), it will use last 32 bits of `ecx` as the size. So when we pass a negative number, it will wrap around to a large positive number, allowing us to overflow the buffer.
 - Payload (`argv[2]`, 44 bytes): `"A"*40 + "FLOW"`. The last 4 bytes land on `esp+0x3c`, making
   the dword `0x574f4c46` ("FLOW" = `\x46\x4c\x4f\x57` little-endian) → the `cmp` passes.
 - Delivery: two **argv** args (`n`, overflow string); win jumps to the program's own

