@@ -52,6 +52,3 @@ $ cat /home/user/end/.pass
 ## Diff vs previous level (bonus2)
 - **No memory corruption**: bonus0–bonus2 were overflow/overwrite families (return-address or local). bonus3 is a pure **logic bug** — an unchecked user-controlled NUL write that collapses both `strcmp` operands to `""`.
 - **Not guessing the secret; neutralizing the comparison**: the trick is zeroing the compare on both sides, not matching the password.
-
-## Unverified / caveats
-- Resulting `.pass` is omitted (managed in .pass).
